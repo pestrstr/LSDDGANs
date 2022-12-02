@@ -10,6 +10,7 @@ import torch
 import numpy as np
 import argparse
 import os
+from tqdm import tqdm
 
 import torch.nn as nn
 import torch.nn.functional as F
@@ -120,7 +121,7 @@ def train(device, args):
     
     for epoch in range(init_epoch, args.num_epoch+1):
        
-        for iteration, (x, y) in enumerate(data_loader):
+        for iteration, (x, y) in tqdm(enumerate(data_loader)):
             for p in netD.parameters():  
                 p.requires_grad = True  
             
