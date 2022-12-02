@@ -122,9 +122,16 @@ def train(device, args):
     for epoch in range(init_epoch, args.num_epoch+1):
        
         for iteration, batch in tqdm(enumerate(data_loader)):
+            
             if args.dataset == 'cifar10':
                 x, y = batch
-                
+            elif args.dataset == 'fashion_mnist':
+                x = batch
+            else:
+                print("Current code only trains model on CIFAR10 and FashionMNIST")
+                print("Please select one of these datasets")
+                return
+        
             for p in netD.parameters():  
                 p.requires_grad = True  
             
