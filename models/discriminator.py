@@ -11,8 +11,8 @@ import numpy as np
 import math
 import torch.nn.functional as F
 from . import up_or_down_sampling
-from dense_layer import dense, conv2d
-from layers import get_timestep_embedding as get_sinusoidal_positional_embedding
+from .dense_layer import dense, conv2d
+from .layers import get_timestep_embedding as get_sinusoidal_positional_embedding
 
 class TimestepEmbedding(nn.Module):
     def __init__(self, embedding_dim, hidden_dim, output_dim, act=nn.LeakyReLU(0.2)):
