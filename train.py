@@ -121,7 +121,10 @@ def train(device, args):
     
     for epoch in range(init_epoch, args.num_epoch+1):
        
-        for iteration, (x, y) in tqdm(enumerate(data_loader)):
+        for iteration, batch in tqdm(enumerate(data_loader)):
+            if args.dataset == 'cifar10':
+                x, y = batch
+                
             for p in netD.parameters():  
                 p.requires_grad = True  
             
