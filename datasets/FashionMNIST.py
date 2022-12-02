@@ -23,10 +23,10 @@ def load_mnist(path, kind='train'):
 
     return images, labels
 
-def mnist_train():
-    X_train, y_train = load_mnist('./fashion_mnist', kind='train')
+def mnist_train(path):
+    X_train, y_train = load_mnist(path, kind='train')
     return X_train, y_train
 
-def mnist_test():
-    X_test, y_test = load_mnist('./fashion_mnist', kind='t10k')
+def mnist_test(path):
+    X_test, y_test = load_mnist(path, kind='t10k')
     return X_test, y_test
