@@ -10,7 +10,7 @@ import torch.nn as nn
 import numpy as np
 import math
 import torch.nn.functional as F
-import up_or_down_sampling
+from . import up_or_down_sampling
 from dense_layer import dense, conv2d
 from layers import get_timestep_embedding as get_sinusoidal_positional_embedding
 
