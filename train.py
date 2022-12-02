@@ -58,6 +58,7 @@ def train(device, args):
 
     elif args.dataset == 'fashion_mnist':
         dataset, _ = FMNIST(path='./datasets/fashion_mnist')
+        dataset = dataset.astype(np.float32)
         dataset = dataset.reshape((-1, 1, 28, 28))
         args.num_channels = 1
 
@@ -131,7 +132,7 @@ def train(device, args):
                 print("Current code only trains model on CIFAR10 and FashionMNIST")
                 print("Please select one of these datasets")
                 return
-        
+
             for p in netD.parameters():  
                 p.requires_grad = True  
             
