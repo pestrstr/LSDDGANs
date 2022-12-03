@@ -10,6 +10,7 @@ import torch
 import numpy as np
 import argparse
 import os
+from tqdm import tqdm
 
 import torch.nn as nn
 import torch.nn.functional as F
@@ -124,9 +125,13 @@ def train(device, args):
     
     for epoch in range(init_epoch, args.num_epoch+1):
        
+        #TQDM Setting
+        tq = tqdm(total = len(data_loader) * batch_size) 
+        tq.set_description('epoch %d' % (epoch))
+
         for iteration, (x,y) in enumerate(data_loader):
 
-            print(f'x.shape: {x.shape}')
+            # print(f'x.shape: {x.shape}')
 
             for p in netD.parameters():  
                 p.requires_grad = True  
@@ -219,40 +224,47 @@ def train(device, args):
             
             errG.backward()
             optimizerG.step()
-                
+
+            #Print statistics
+            tq.update(batch_size)
+            tq.set_postfix({"G Loss" : f'{errG.item():.6f}', "D Loss" : f'{errD.item():.6f}'})    
+
             global_step += 1
-            if iteration % 100 == 0:
-                print('epoch {} iteration{}, G Loss: {}, D Loss: {}'.format(epoch,iteration, errG.item(), errD.item()))
+            # if iteration % 100 == 0:
+            #    print('epoch {} iteration{}, G Loss: {}, D Loss: {}'.format(epoch,iteration, errG.item(), errD.item()))
         
         if not args.no_lr_decay:
             
             schedulerG.step()
             schedulerD.step()
         
-        if epoch % 10 == 0:
-            torchvision.utils.save_image(x_pos_sample, os.path.join(exp_path, 'xpos_epoch_{}.png'.format(epoch)), normalize=True)
-            
-            x_t_1 = torch.randn_like(real_data)
-            fake_sample = diffusion.sample_from_model(pos_coeff, netG, args.num_timesteps, x_t_1, T, args)
-            torchvision.utils.save_image(fake_sample, os.path.join(exp_path, 'sample_discrete_epoch_{}.png'.format(epoch)), normalize=True)
-            
-            if args.save_content:
-                if epoch % args.save_content_every == 0:
-                    print('Saving content.')
-                    content = {'epoch': epoch + 1, 'global_step': global_step, 'args': args,
-                               'netG_dict': netG.state_dict(), 'optimizerG': optimizerG.state_dict(),
-                               'schedulerG': schedulerG.state_dict(), 'netD_dict': netD.state_dict(),
-                               'optimizerD': optimizerD.state_dict(), 'schedulerD': schedulerD.state_dict()}
-                    
-                    torch.save(content, os.path.join(exp_path, 'content.pth'))
+        # Test model every epoch
+
+        torchvision.utils.save_image(x_pos_sample, os.path.join(exp_path, 'xpos_epoch_{}.png'.format(epoch)), normalize=True)
+        
+        x_t_1 = torch.randn_like(real_data)
+        fake_sample = diffusion.sample_from_model(pos_coeff, netG, args.num_timesteps, x_t_1, T, args)
+        torchvision.utils.save_image(fake_sample, os.path.join(exp_path, 'sample_discrete_epoch_{}.png'.format(epoch)), normalize=True)
+        
+        if args.save_content:
+            if epoch % args.save_content_every == 0:
+                print('Saving content.')
+                content = {'epoch': epoch + 1, 'global_step': global_step, 'args': args,
+                            'netG_dict': netG.state_dict(), 'optimizerG': optimizerG.state_dict(),
+                            'schedulerG': schedulerG.state_dict(), 'netD_dict': netD.state_dict(),
+                            'optimizerD': optimizerD.state_dict(), 'schedulerD': schedulerD.state_dict()}
                 
-            if epoch % args.save_ckpt_every == 0:
-                if args.use_ema:
-                    optimizerG.swap_parameters_with_ema(store_params_in_ema=True)
-                    
-                torch.save(netG.state_dict(), os.path.join(exp_path, 'netG_{}.pth'.format(epoch)))
-                if args.use_ema:
-                    optimizerG.swap_parameters_with_ema(store_params_in_ema=True)
+                torch.save(content, os.path.join(exp_path, 'content.pth'))
+            
+        if epoch % args.save_ckpt_every == 0:
+            if args.use_ema:
+                optimizerG.swap_parameters_with_ema(store_params_in_ema=True)
+                
+            torch.save(netG.state_dict(), os.path.join(exp_path, 'netG_{}.pth'.format(epoch)))
+            if args.use_ema:
+                optimizerG.swap_parameters_with_ema(store_params_in_ema=True)
+
+    tq.close()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('ddgan parameters')
