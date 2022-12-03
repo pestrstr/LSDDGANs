@@ -22,7 +22,6 @@ def adopt_weight(weight, global_step, threshold=0, value=0.):
         weight = value
     return weight
 
-
 def measure_perplexity(predicted_indices, n_embed):
     # src: https://github.com/karpathy/deep-vector-quantization/blob/main/model.py
     # eval cluster perplexity. when perplexity == num_embeddings then all clusters are used exactly equally

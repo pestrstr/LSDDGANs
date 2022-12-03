@@ -1,16 +1,24 @@
 import torch
 import torch.nn as nn
+import numpy as np
 import pytorch_lightning as pl
 import torch.nn.functional as F
 from contextlib import contextmanager
+
+## Support modules & layers ## 
 from autoencoder_blocks import Encoder, Decoder
-
 from taming.modules.vqvae.quantize import VectorQuantizer2 as VectorQuantizer
-
-from modules.ema import LitEma
 from modules.distributions.distributions import DiagonalGaussianDistribution
 from modules.attention import LinearAttention
-from ldm.util import instantiate_from_config
+from torch.optim.lr_scheduler import LambdaLR
+
+## Optimizer ##
+from modules.ema import LitEma
+
+## Losses ##
+from modules.losses.vqperceptual import VQLPIPSWithDiscriminator
+from modules.losses.contperceptual import LPIPSWithDiscriminator
+
 
 class VQModel(pl.LightningModule):
     def __init__(self,
@@ -36,7 +44,7 @@ class VQModel(pl.LightningModule):
         self.image_key = image_key
         self.encoder = Encoder(**ddconfig)
         self.decoder = Decoder(**ddconfig)
-        self.loss = instantiate_from_config(lossconfig)
+        self.loss = VQLPIPSWithDiscriminator()
         self.quantize = VectorQuantizer(n_embed, embed_dim, beta=0.25,
                                         remap=remap,
                                         sane_index_shape=sane_index_shape)
@@ -210,8 +218,6 @@ class VQModel(pl.LightningModule):
                                     lr=lr_d, betas=(0.5, 0.9))
 
         if self.scheduler_config is not None:
-            scheduler = instantiate_from_config(self.scheduler_config)
-
             print("Setting up LambdaLR scheduler...")
             scheduler = [
                 {
@@ -298,7 +304,7 @@ class AutoencoderKL(pl.LightningModule):
         self.image_key = image_key
         self.encoder = Encoder(**ddconfig)
         self.decoder = Decoder(**ddconfig)
-        self.loss = instantiate_from_config(lossconfig)
+        self.loss = LPIPSWithDiscriminator(disc_start=0)
         assert ddconfig["double_z"]
         self.quant_conv = torch.nn.Conv2d(2*ddconfig["z_channels"], 2*embed_dim, 1)
         self.post_quant_conv = torch.nn.Conv2d(embed_dim, ddconfig["z_channels"], 1)
