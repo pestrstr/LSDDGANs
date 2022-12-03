@@ -73,7 +73,6 @@ def train(device, args):
                                                drop_last = True)
     
     netG = NCSNpp(args).to(device)
-    
   
     netD = Discriminator(nc = 2*args.num_channels, ngf = args.ngf,
                             t_emb_dim = args.t_emb_dim,
@@ -127,6 +126,8 @@ def train(device, args):
        
         for iteration, (x,y) in enumerate(data_loader):
 
+            print(f'x.shape: {x.shape}')
+            
             for p in netD.parameters():  
                 p.requires_grad = True  
             
