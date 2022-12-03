@@ -15,7 +15,7 @@ from torch.optim.lr_scheduler import LambdaLR
 ## Optimizer ##
 from modules.ema import LitEma
 
-## Losses ##
+## Perceptual Losses ##
 from modules.losses.vqperceptual import VQLPIPSWithDiscriminator
 from modules.losses.contperceptual import LPIPSWithDiscriminator
 
