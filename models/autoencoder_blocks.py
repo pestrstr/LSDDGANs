@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 import torch.nn as nn
-from modules.attention import LinearAttention
+from .modules.attention import LinearAttention
 
 def nonlinearity(x):
     # swish

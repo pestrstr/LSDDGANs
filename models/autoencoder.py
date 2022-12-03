@@ -8,10 +8,10 @@ import torch.nn.functional as F
 from contextlib import contextmanager
 
 ## Support modules & layers ## 
-from autoencoder_blocks import Encoder, Decoder
+from .autoencoder_blocks import Encoder, Decoder
 from taming.modules.vqvae.quantize import VectorQuantizer2 as VectorQuantizer
-from modules.distributions.distributions import DiagonalGaussianDistribution
-from modules.attention import LinearAttention
+from .modules.distributions.distributions import DiagonalGaussianDistribution
+from .modules.attention import LinearAttention
 from torch.optim.lr_scheduler import LambdaLR
 
 ## Optimizer ##
