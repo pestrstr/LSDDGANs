@@ -57,11 +57,11 @@ def train(device, args):
 
     elif args.dataset == 'fashion_mnist':
         transform = transforms.Compose([
-                        transforms.ToPILImage(mode=1),
+                        transforms.ToPILImage(),
                         transforms.Resize(32),
                         transforms.RandomHorizontalFlip(),
                         transforms.ToTensor(),
-                        transforms.Normalize((0.5,0.5,0.5), (0.5,0.5,0.5))])
+                        transforms.Normalize((0.5,), (0.5,))])
         dataset = FashionMNIST(path='./datasets/fashion_mnist', transform=transform)
         args.num_channels = 1
 
