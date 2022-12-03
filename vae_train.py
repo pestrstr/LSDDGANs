@@ -15,5 +15,6 @@ if __name__ == '__main__':
                     transforms.RandomHorizontalFlip(),
                     transforms.ToTensor(),
                     transforms.Normalize((0.5,), (0.5,))])
-    dataset = FashionMNIST(path='./datasets/fashion_mnist', transform=transform)
-    trainer.fit(model, dataset)
+    fmnist_train = FashionMNIST(path='./datasets/fashion_mnist', transform=transform)
+    fmnist_val = FashionMNIST(path='./datasets/fashion_mnist', transform=transform, train=False)
+    trainer.fit(model, fmnist_train, fmnist_val)
