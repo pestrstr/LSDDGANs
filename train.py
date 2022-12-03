@@ -126,7 +126,7 @@ def train(device, args):
     for epoch in range(init_epoch, args.num_epoch+1):
        
         #TQDM Setting
-        tq = tqdm(total = len(data_loader) * batch_size) 
+        tq = tqdm(total = len(data_loader) * batch_size, position=0, leave=True) 
         tq.set_description('epoch %d' % (epoch))
 
         for iteration, (x,y) in enumerate(data_loader):
