@@ -15,11 +15,11 @@ from .modules.attention import LinearAttention
 from torch.optim.lr_scheduler import LambdaLR
 
 ## Optimizer ##
-from modules.ema import LitEma
+from .modules.ema import LitEma
 
 ## Perceptual Losses ##
-from modules.losses.vqperceptual import VQLPIPSWithDiscriminator
-from modules.losses.contperceptual import LPIPSWithDiscriminator
+from .modules.losses.vqperceptual import VQLPIPSWithDiscriminator
+from .modules.losses.contperceptual import LPIPSWithDiscriminator
 
 class VQModel(pl.LightningModule):
     def __init__(self,
