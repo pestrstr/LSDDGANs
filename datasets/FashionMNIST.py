@@ -45,7 +45,7 @@ class FashionMNIST(Dataset):
         else:
             self.test_data, self.test_label = mnist_train(path)
             self.test_data = self.test_data.reshape((-1, 1, 28, 28))
-            self.train_data = np.transpose(self.train_data, (0, 2, 3, 1)) 
+            self.test_data = np.transpose(self.test_data, (0, 2, 3, 1)) 
         self.transform = transform
 
     def __len__(self):
