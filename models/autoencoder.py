@@ -359,7 +359,8 @@ class AutoencoderKL(pl.LightningModule):
     # self.log can be used to send any metric to tensorboard
     # we can also add on_epoch=True to calculate epoch-level metrics
     def training_step(self, batch, batch_idx, optimizer_idx):
-        inputs = self.get_input(batch, self.image_key)
+        # inputs = self.get_input(batch, self.image_key)
+        inputs = batch
         reconstructions, posterior = self(inputs)
 
         if optimizer_idx == 0:
@@ -380,7 +381,8 @@ class AutoencoderKL(pl.LightningModule):
             return discloss
 
     def validation_step(self, batch, batch_idx):
-        inputs = self.get_input(batch, self.image_key)
+        #inputs = self.get_input(batch, self.image_key)
+        inputs = batch
         reconstructions, posterior = self(inputs)
         _, log_dict_ae = self.loss(inputs, reconstructions, posterior, 0, self.global_step,
                                         last_layer=self.get_last_layer(), split="val")
