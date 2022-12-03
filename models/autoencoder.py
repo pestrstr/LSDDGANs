@@ -11,7 +11,6 @@ from contextlib import contextmanager
 from .autoencoder_blocks import Encoder, Decoder
 from taming.modules.vqvae.quantize import VectorQuantizer2 as VectorQuantizer
 from .modules.distributions.distributions import DiagonalGaussianDistribution
-from .modules.attention import LinearAttention
 from torch.optim.lr_scheduler import LambdaLR
 
 ## Optimizer ##
@@ -304,6 +303,7 @@ class AutoencoderKL(pl.LightningModule):
         self.encoder = Encoder(**ddconfig)
         self.decoder = Decoder(**ddconfig)
         self.loss = LPIPSWithDiscriminator(disc_start=0)
+        self.learning_rate = ddconfig["lr"]
         assert ddconfig["double_z"]
         self.quant_conv = torch.nn.Conv2d(2*ddconfig["z_channels"], 2*embed_dim, 1)
         self.post_quant_conv = torch.nn.Conv2d(embed_dim, ddconfig["z_channels"], 1)
