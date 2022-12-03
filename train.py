@@ -10,7 +10,6 @@ import torch
 import numpy as np
 import argparse
 import os
-from tqdm import tqdm
 
 import torch.nn as nn
 import torch.nn.functional as F
@@ -20,7 +19,7 @@ import torchvision
 ## Datasets ##
 import torchvision.transforms as transforms
 from torchvision.datasets import CIFAR10
-from datasets.FashionMNIST import mnist_train as FMNIST
+from datasets.FashionMNIST import FashionMNIST
 
 ## Models ##
 from models.discriminator import Discriminator
@@ -57,14 +56,18 @@ def train(device, args):
                         transforms.Normalize((0.5,0.5,0.5), (0.5,0.5,0.5))]), download=True) 
 
     elif args.dataset == 'fashion_mnist':
-        dataset, _ = FMNIST(path='./datasets/fashion_mnist')
-        dataset = dataset.astype(np.float32)
-        dataset = dataset.reshape((-1, 1, 28, 28))
+        transform = transforms.Compose([
+                        transforms.ToPILImage(),
+                        transforms.Resize(32),
+                        transforms.RandomHorizontalFlip(),
+                        transforms.ToTensor(),
+                        transforms.Normalize((0.5,0.5,0.5), (0.5,0.5,0.5))])
+        dataset = FashionMNIST(path='./datasets/fashion_mnist', transform=transform)
         args.num_channels = 1
 
     data_loader = torch.utils.data.DataLoader(dataset,
                                                batch_size=batch_size,
-                                               shuffle=False,
+                                               shuffle=True,
                                                num_workers=4,
                                                pin_memory=True,
                                                drop_last = True)
@@ -122,16 +125,7 @@ def train(device, args):
     
     for epoch in range(init_epoch, args.num_epoch+1):
        
-        for iteration, batch in tqdm(enumerate(data_loader)):
-            
-            if args.dataset == 'cifar10':
-                x, y = batch
-            elif args.dataset == 'fashion_mnist':
-                x = batch
-            else:
-                print("Current code only trains model on CIFAR10 and FashionMNIST")
-                print("Please select one of these datasets")
-                return
+        for iteration, (x,y) in enumerate(data_loader):
 
             for p in netD.parameters():  
                 p.requires_grad = True  
