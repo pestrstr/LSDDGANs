@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 import numpy as np
+
+## Code written with Pytorch Lightning Support
 import pytorch_lightning as pl
 import torch.nn.functional as F
 from contextlib import contextmanager
@@ -18,7 +20,6 @@ from modules.ema import LitEma
 ## Perceptual Losses ##
 from modules.losses.vqperceptual import VQLPIPSWithDiscriminator
 from modules.losses.contperceptual import LPIPSWithDiscriminator
-
 
 class VQModel(pl.LightningModule):
     def __init__(self,
@@ -339,6 +340,7 @@ class AutoencoderKL(pl.LightningModule):
         dec = self.decoder(z)
         return dec
 
+    # forward pytorch-lightning hook
     def forward(self, input, sample_posterior=True):
         posterior = self.encode(input)
         if sample_posterior:
@@ -355,6 +357,9 @@ class AutoencoderKL(pl.LightningModule):
         x = x.permute(0, 3, 1, 2).to(memory_format=torch.contiguous_format).float()
         return x
 
+    # training logic goes into training_step hook
+    # self.log can be used to send any metric to tensorboard
+    # we can also add on_epoch=True to calculate epoch-level metrics
     def training_step(self, batch, batch_idx, optimizer_idx):
         inputs = self.get_input(batch, self.image_key)
         reconstructions, posterior = self(inputs)
@@ -379,10 +384,10 @@ class AutoencoderKL(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         inputs = self.get_input(batch, self.image_key)
         reconstructions, posterior = self(inputs)
-        aeloss, log_dict_ae = self.loss(inputs, reconstructions, posterior, 0, self.global_step,
+        _, log_dict_ae = self.loss(inputs, reconstructions, posterior, 0, self.global_step,
                                         last_layer=self.get_last_layer(), split="val")
 
-        discloss, log_dict_disc = self.loss(inputs, reconstructions, posterior, 1, self.global_step,
+        _, log_dict_disc = self.loss(inputs, reconstructions, posterior, 1, self.global_step,
                                             last_layer=self.get_last_layer(), split="val")
 
         self.log("val/rec_loss", log_dict_ae["val/rec_loss"])
@@ -390,6 +395,7 @@ class AutoencoderKL(pl.LightningModule):
         self.log_dict(log_dict_disc)
         return self.log_dict
 
+    # configure optimizers hook
     def configure_optimizers(self):
         lr = self.learning_rate
         opt_ae = torch.optim.Adam(list(self.encoder.parameters())+
@@ -420,14 +426,6 @@ class AutoencoderKL(pl.LightningModule):
             log["reconstructions"] = xrec
         log["inputs"] = x
         return log
-
-    def to_rgb(self, x):
-        assert self.image_key == "segmentation"
-        if not hasattr(self, "colorize"):
-            self.register_buffer("colorize", torch.randn(3, x.shape[1], 1, 1).to(x))
-        x = F.conv2d(x, weight=self.colorize)
-        x = 2.*(x-x.min())/(x.max()-x.min()) - 1.
-        return x
 
 
 class IdentityFirstStage(torch.nn.Module):
