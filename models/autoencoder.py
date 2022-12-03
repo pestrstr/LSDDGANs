@@ -328,6 +328,7 @@ class AutoencoderKL(pl.LightningModule):
         print(f"Restored from {path}")
 
     def encode(self, x):
+        print(f"x.shape: {x.shape}")
         h = self.encoder(x)
         moments = self.quant_conv(h)
         posterior = DiagonalGaussianDistribution(moments)
@@ -361,6 +362,7 @@ class AutoencoderKL(pl.LightningModule):
     def training_step(self, batch, batch_idx, optimizer_idx):
         # inputs = self.get_input(batch, self.image_key)
         inputs = batch
+        print(f"inputs.shape: {inputs.shape}")
         reconstructions, posterior = self(inputs)
 
         if optimizer_idx == 0:
