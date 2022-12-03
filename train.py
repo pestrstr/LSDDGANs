@@ -57,7 +57,7 @@ def train(device, args):
 
     elif args.dataset == 'fashion_mnist':
         transform = transforms.Compose([
-                        transforms.ToPILImage(),
+                        transforms.ToPILImage(mode=1),
                         transforms.Resize(32),
                         transforms.RandomHorizontalFlip(),
                         transforms.ToTensor(),
@@ -127,7 +127,7 @@ def train(device, args):
         for iteration, (x,y) in enumerate(data_loader):
 
             print(f'x.shape: {x.shape}')
-            
+
             for p in netD.parameters():  
                 p.requires_grad = True  
             
