@@ -7,7 +7,19 @@ import torchvision.transforms as transforms
 from datasets.FashionMNIST import FashionMNIST
 
 if __name__ == '__main__':
-    model = AutoencoderKL()
+    ddconfig = {
+      "double_z": True,
+      "z_channels": 64,
+      "resolution": 256,
+      "in_channels": 3,
+      "out_ch": 3,
+      "ch": 128,
+      "ch_mult": [1,1,2,2,4,4],  
+      "num_res_blocks": 2,
+      "attn_resolutions": [16,8],
+      "dropout": 0.0
+    }
+    model = AutoencoderKL(ddconfig=ddconfig, embed_dim=64)
     trainer = pl.Trainer()
     transform = transforms.Compose([
                     transforms.ToPILImage(),

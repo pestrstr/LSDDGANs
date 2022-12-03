@@ -24,7 +24,6 @@ from .modules.losses.contperceptual import LPIPSWithDiscriminator
 class VQModel(pl.LightningModule):
     def __init__(self,
                  ddconfig,
-                 lossconfig,
                  n_embed,
                  embed_dim,
                  ckpt_path=None,
@@ -293,7 +292,6 @@ class VQModelInterface(VQModel):
 class AutoencoderKL(pl.LightningModule):
     def __init__(self,
                  ddconfig,
-                 lossconfig,
                  embed_dim,
                  ckpt_path=None,
                  ignore_keys=[],
