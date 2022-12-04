@@ -322,7 +322,9 @@ class AutoencoderKL(pl.LightningModule):
         return posterior
 
     def decode(self, z):
+        print(f"z post quant: {z.shape}")
         z = self.post_quant_conv(z)
+        print(f"z post quant conv: {z.shape}")
         dec = self.decoder(z)
         return dec
 
@@ -331,6 +333,7 @@ class AutoencoderKL(pl.LightningModule):
         posterior = self.encode(input)
         if sample_posterior:
             z = posterior.sample()
+            print(f"sample from posterior: {z.shape}")
         else:
             z = posterior.mode()
         dec = self.decode(z)
@@ -403,8 +406,8 @@ class AutoencoderKL(pl.LightningModule):
         return log
     
     # Sampling from Prior
-    def prior_sampling(self, n_images:
-        z = torch.randn((n_images, 1, ))
+    # def prior_sampling(self, n_images:
+    #    z = torch.randn((n_images, , ))
 
 
 
