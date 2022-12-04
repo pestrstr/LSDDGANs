@@ -56,7 +56,7 @@ if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument("--accelerator", default='gpu')
     parser.add_argument("--devices", default=1)
-    parser.add_argument("--batch-size", default=64)
+    parser.add_argument("--batch_size", default=64)
     args = parser.parse_args()
 
     main(args, ddconfig)
