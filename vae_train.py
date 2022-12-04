@@ -2,6 +2,7 @@
 import torch
 import pytorch_lightning as pl
 from models.autoencoder import AutoencoderKL
+from tqdm import tqdm
 
 ## Datasets ##
 import torchvision.transforms as transforms
@@ -12,7 +13,8 @@ from argparse import ArgumentParser
 
 def main(hparams, ddconfig):
     model = AutoencoderKL(ddconfig=ddconfig, embed_dim=64)
-    trainer = pl.Trainer(accelerator=hparams.accelerator, devices=hparams.devices)
+    trainer = pl.Trainer(accelerator=hparams.accelerator, devices=hparams.devices, max_epochs=20)
+    
     transform = transforms.Compose([
                     transforms.ToPILImage(),
                     transforms.Resize(32),
@@ -60,3 +62,47 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     main(args, ddconfig)
+
+
+## Testing Function ##
+class PerceptualVAETrainer():
+  def __init__(self, config):
+    super().__init__()
+    self.model = config["model"]
+    self.optimizer_AE = config["optimizer_AE"]
+    self.optimizer_D = config["optimizer_D"]
+    self.train_loader = config["train_loader"]
+    self.test_loader = config["test_loader"]
+    self.n_epochs = config["n_epochs"]
+    self.batch_size = config["batch_size"]
+
+  def train(self):
+    self.model.train()
+    for epoch in range(self.n_epochs):
+
+        #TQDM Setting
+        tq = tqdm(total = len(self.train_loader) * self.batch_size, position=0, leave=True) 
+        tq.set_description('epoch %d' % (epoch))
+
+        for _, (x,y) in enumerate(self.train_loader):
+          # Train Encoder+Decoder+logvar
+          self.optimizer_AE.zero_grad()
+          loss_AE = self.model.training_step(x, None, 0)
+          loss_AE.backward()
+          self.optimizer_AE.step()
+
+          # Train Discriminator
+          self.optimizer_D.zero_grad()
+          loss_D = self.model.training_step(x, None, 1)
+          loss_D.backward()
+          self.optimizer_D.step()
+
+          #Print statistics
+          tq.update(self.batch_size)
+          tq.set_postfix({"AE Loss" : f'{loss_AE.item():.6f}', "D Loss" : f'{loss_D.item():.6f}'})    
+    
+    tq.close()
+  
+  def evaluate(self):
+    # TODO: Implement evaluate function
+    pass
