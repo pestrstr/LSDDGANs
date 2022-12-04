@@ -292,29 +292,17 @@ class AutoencoderKL(pl.LightningModule):
     def __init__(self,
                  ddconfig,
                  embed_dim,
-                 ckpt_path=None,
-                 ignore_keys=[],
-                 image_key="image",
-                 colorize_nlabels=None,
-                 monitor=None,
+                 ckpt_path=None
                  ):
         super().__init__()
-        self.image_key = image_key
         self.encoder = Encoder(**ddconfig)
         self.decoder = Decoder(**ddconfig)
-        self.loss = LPIPSWithDiscriminator(disc_start=0)
+        self.loss = LPIPSWithDiscriminator(disc_start=0, disc_in_channels=1)
         self.learning_rate = ddconfig["lr"]
         assert ddconfig["double_z"]
         self.quant_conv = torch.nn.Conv2d(2*ddconfig["z_channels"], 2*embed_dim, 1)
         self.post_quant_conv = torch.nn.Conv2d(embed_dim, ddconfig["z_channels"], 1)
         self.embed_dim = embed_dim
-        if colorize_nlabels is not None:
-            assert type(colorize_nlabels)==int
-            self.register_buffer("colorize", torch.randn(3, colorize_nlabels, 1, 1))
-        if monitor is not None:
-            self.monitor = monitor
-        if ckpt_path is not None:
-            self.init_from_ckpt(ckpt_path, ignore_keys=ignore_keys)
 
     def init_from_ckpt(self, path, ignore_keys=list()):
         sd = torch.load(path, map_location="cpu")["state_dict"]
@@ -349,19 +337,12 @@ class AutoencoderKL(pl.LightningModule):
         dec = self.decode(z)
         return dec, posterior
 
-    def get_input(self, batch, k):
-        x = batch[k]
-        if len(x.shape) == 3:
-            x = x[..., None]
-        x = x.permute(0, 3, 1, 2).to(memory_format=torch.contiguous_format).float()
-        return x
-
     # training logic goes into training_step hook
     # self.log can be used to send any metric to tensorboard
     # we can also add on_epoch=True to calculate epoch-level metrics
     def training_step(self, batch, batch_idx, optimizer_idx):
         # inputs = self.get_input(batch, self.image_key)
-        inputs = batch
+        inputs, _ = batch
         print(f"inputs.shape: {inputs.shape}")
         reconstructions, posterior = self(inputs)
 
@@ -384,7 +365,7 @@ class AutoencoderKL(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         #inputs = self.get_input(batch, self.image_key)
-        inputs = batch
+        inputs, _ = batch
         reconstructions, posterior = self(inputs)
         _, log_dict_ae = self.loss(inputs, reconstructions, posterior, 0, self.global_step,
                                         last_layer=self.get_last_layer(), split="val")

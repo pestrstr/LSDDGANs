@@ -1,4 +1,5 @@
 ## Modules ##
+import torch
 import pytorch_lightning as pl
 from models.autoencoder import AutoencoderKL
 
@@ -20,7 +21,22 @@ def main(hparams, ddconfig):
                     transforms.Normalize((0.5,), (0.5,))])
     fmnist_train = FashionMNIST(path='./datasets/fashion_mnist', transform=transform)
     fmnist_val = FashionMNIST(path='./datasets/fashion_mnist', transform=transform, train=False)
-    trainer.fit(model, fmnist_train, fmnist_val)
+    
+    fmnist_train_loader = torch.utils.data.DataLoader(fmnist_train,
+                                            batch_size=hparams.batch_size,
+                                            shuffle=True,
+                                            num_workers=4,
+                                            pin_memory=True,
+                                            drop_last = True)
+
+    fmnist_val_loader = torch.utils.data.DataLoader(fmnist_val,
+                                            batch_size=hparams.batch_size,
+                                            shuffle=True,
+                                            num_workers=4,
+                                            pin_memory=True,
+                                            drop_last = True)
+
+    trainer.fit(model, fmnist_train_loader, fmnist_val_loader)
 
 
 if __name__ == '__main__':
@@ -28,8 +44,8 @@ if __name__ == '__main__':
       "double_z": True,
       "z_channels": 64,
       "resolution": 256,
-      "in_channels": 3,
-      "out_ch": 3,
+      "in_channels": 1,
+      "out_ch": 1,
       "ch": 128,
       "ch_mult": [1,1,2,2,4,4],  
       "num_res_blocks": 2,
@@ -40,6 +56,7 @@ if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument("--accelerator", default='gpu')
     parser.add_argument("--devices", default=1)
+    parser.add_argument("--batch-size", default=64)
     args = parser.parse_args()
 
     main(args, ddconfig)
