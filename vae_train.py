@@ -51,7 +51,7 @@ class ImageLogger(Callback):
             os.makedirs(os.path.split(path)[0], exist_ok=True)
             Image.fromarray(grid).save(path)
 
-    def log_img(self, pl_module, batch, batch_idx, split="train"):
+    def log_img(self, pl_module, batch, batch_idx):
         if (self.check_frequency(batch_idx) and  # batch_idx % self.batch_freq == 0
             hasattr(pl_module, "log_images") and
               callable(pl_module.log_images) and
@@ -63,18 +63,24 @@ class ImageLogger(Callback):
                 pl_module.eval()
 
             with torch.no_grad():
-                images = pl_module.log_images(batch, **self.log_images_kwargs)["samples"]
+                images_post = pl_module.log_images(batch, **self.log_images_kwargs)["samples"]
+                images_prior = pl_module.prior_sampling(self.max_images)
 
-            N = min(images.shape[0], self.max_images)
-            images = images[:N]
-            if isinstance(images, torch.Tensor):
-                images = images.detach().cpu()
+            if isinstance(images_post, torch.Tensor):
+                images_post = images_post.detach().cpu()
                 if self.clamp:
-                    images = torch.clamp(images, -1., 1.)
+                    images_post = torch.clamp(images_post, -1., 1.)
 
-            self.log_local(pl_module.logger.save_dir, split, images,
+            if isinstance(images_prior, torch.Tensor):
+                images_prior = images_prior.detach().cpu()
+                if self.clamp:
+                    images_prior = torch.clamp(images_prior, -1., 1.)
+
+            self.log_local(pl_module.logger.save_dir, "posterior", images_post,
                            pl_module.global_step, pl_module.current_epoch, batch_idx)
-
+            self.log_local(pl_module.logger.save_dir, "prior", images_prior,
+                           pl_module.global_step, pl_module.current_epoch, batch_idx)
+                           
             if is_train:
                 pl_module.train()
 
@@ -87,11 +93,7 @@ class ImageLogger(Callback):
     # hook to call at every train batch end
     def on_train_batch_end(self, trainer, pl_module, outputs, batch, batch_idx):
         if not self.disabled and (pl_module.global_step > 0 or self.log_first_step):
-            self.log_img(pl_module, batch, batch_idx, split="train")
-    # hook to call at every val batch end
-    def on_validation_batch_end(self, trainer, pl_module, outputs, batch, batch_idx, dataloader_idx):
-        if not self.disabled and pl_module.global_step > 0:
-            self.log_img(pl_module, batch, batch_idx, split="val")
+            self.log_img(pl_module, batch, batch_idx)
 
 
 def main(hparams, ddconfig):
