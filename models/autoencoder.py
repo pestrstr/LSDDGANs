@@ -340,7 +340,6 @@ class AutoencoderKL(pl.LightningModule):
     # self.log can be used to send any metric to tensorboard
     # we can also add on_epoch=True to calculate epoch-level metrics
     def training_step(self, batch, batch_idx, optimizer_idx):
-        # inputs = self.get_input(batch, self.image_key)
         inputs, _ = batch
         reconstructions, posterior = self(inputs)
 
@@ -391,22 +390,22 @@ class AutoencoderKL(pl.LightningModule):
     def get_last_layer(self):
         return self.decoder.conv_out.weight
 
+    # Sampling from Posterior
     @torch.no_grad()
-    def log_images(self, batch, only_inputs=False, **kwargs):
+    def log_images(self, batch, **kwargs):
         log = dict()
-        x = self.get_input(batch, self.image_key)
+        x, _ = batch
         x = x.to(self.device)
-        if not only_inputs:
-            xrec, posterior = self(x)
-            if x.shape[1] > 3:
-                # colorize with random projection
-                assert xrec.shape[1] > 3
-                x = self.to_rgb(x)
-                xrec = self.to_rgb(xrec)
-            log["samples"] = self.decode(torch.randn_like(posterior.sample()))
-            log["reconstructions"] = xrec
+        xrec, posterior = self(x)
+        log["samples"] = self.decode(torch.randn_like(posterior.sample()))
+        log["reconstructions"] = xrec
         log["inputs"] = x
         return log
+    
+    # Sampling from Prior
+    def prior_sampling(self, n_images:
+        z = torch.randn((n_images, 1, ))
+
 
 
 class IdentityFirstStage(torch.nn.Module):
