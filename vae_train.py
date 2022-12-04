@@ -13,7 +13,7 @@ from argparse import ArgumentParser
 
 def main(hparams, ddconfig):
     model = AutoencoderKL(ddconfig=ddconfig, embed_dim=64)
-    trainer = pl.Trainer(accelerator=hparams.accelerator, devices=hparams.devices, max_epochs=20)
+    trainer = pl.Trainer(accelerator=hparams.accelerator, devices=hparams.devices, max_epochs=hparams.max_epochs)
     
     transform = transforms.Compose([
                     transforms.ToPILImage(),
@@ -59,6 +59,7 @@ if __name__ == '__main__':
     parser.add_argument("--accelerator", default='gpu')
     parser.add_argument("--devices", default=1)
     parser.add_argument("--batch_size", default=64)
+    parser.add_argument("--max_epochs", default=20)
     args = parser.parse_args()
 
     main(args, ddconfig)
