@@ -295,6 +295,7 @@ class AutoencoderKL(pl.LightningModule):
                  ckpt_path=None
                  ):
         super().__init__()
+        self.z_res = ddconfig["resolution"] // 2**(len(ddconfig["ch_mult"])-1) 
         self.encoder = Encoder(**ddconfig)
         self.decoder = Decoder(**ddconfig)
         self.loss = LPIPSWithDiscriminator(disc_start=0, disc_in_channels=1)
@@ -408,7 +409,8 @@ class AutoencoderKL(pl.LightningModule):
     # Sampling from Prior
     @torch.no_grad()
     def prior_sampling(self, n_images):
-        z = torch.randn((n_images, self.embed_dim, 1, 1)).to(self.device)
+        z_res = self.
+        z = torch.randn((n_images, self.embed_dim, self.z_res, self.z_res)).to(self.device)
         samples = self.decode(z)
         return samples
 

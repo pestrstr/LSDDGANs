@@ -130,4 +130,7 @@ dmypy.json
 
 # trained models
 lightning_logs/version_*
+events.out.tfevents.*
+hparams.yaml
 *.pth
+*.ckpt

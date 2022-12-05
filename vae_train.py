@@ -62,10 +62,12 @@ class ImageLogger(Callback):
             if is_train:
                 pl_module.eval()
 
+            # Testing reconstruction capabilities
+            batch = batch[:self.max_images]
             with torch.no_grad():
                 images_post = pl_module.log_images(batch, **self.log_images_kwargs)["samples"]
                 images_prior = pl_module.prior_sampling(self.max_images)
-
+                      
             if isinstance(images_post, torch.Tensor):
                 images_post = images_post.detach().cpu()
                 if self.clamp:
@@ -80,7 +82,7 @@ class ImageLogger(Callback):
                            pl_module.global_step, pl_module.current_epoch, batch_idx)
             self.log_local(pl_module.logger.save_dir, "prior", images_prior,
                            pl_module.global_step, pl_module.current_epoch, batch_idx)
-                           
+
             if is_train:
                 pl_module.train()
 
@@ -131,19 +133,21 @@ def main(hparams, ddconfig):
 
 
 if __name__ == '__main__':
+  # f = 4, d = 3, z 8x8x3
     ddconfig = {
       "double_z": True,
-      "z_channels": 64,
-      "resolution": 256,
+      "z_channels": 3,
+      "resolution": 32,
       "in_channels": 1,
       "out_ch": 1,
       "ch": 128,
-      "ch_mult": [1,1,2,2,4,4],  
+      "ch_mult": [1,2,4],  
       "num_res_blocks": 2,
-      "attn_resolutions": [16,8],
+      "attn_resolutions": [],
       "dropout": 0.0,
       "lr": 0.001
     }
+
     parser = ArgumentParser()
     parser.add_argument("--accelerator", default='gpu')
     parser.add_argument("--devices", default=1)
