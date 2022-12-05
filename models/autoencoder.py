@@ -396,9 +396,8 @@ class AutoencoderKL(pl.LightningModule):
 
     # Sampling from Posterior
     @torch.no_grad()
-    def log_images(self, batch, **kwargs):
+    def log_images(self, x, **kwargs):
         log = dict()
-        x, _ = batch
         x = x.to(self.device)
         xrec, posterior = self(x)
         log["samples"] = self.decode(torch.randn_like(posterior.sample()))
