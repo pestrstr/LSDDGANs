@@ -99,7 +99,7 @@ class ImageLogger(Callback):
 
 
 def main(hparams, ddconfig):
-    model = AutoencoderKL(ddconfig=ddconfig, embed_dim=64)
+    model = AutoencoderKL(ddconfig=ddconfig, embed_dim=hparams.embed_dim)
     logger_callback = ImageLogger(batch_frequency=200, max_images=1)
     trainer = pl.Trainer(accelerator=hparams.accelerator, 
                           devices=hparams.devices, 
@@ -153,6 +153,7 @@ if __name__ == '__main__':
     parser.add_argument("--devices", default=1)
     parser.add_argument("--batch_size", default=100)
     parser.add_argument("--max_epochs", default=20)
+    parser.add_argument("--embed_dim", default=3)
     args = parser.parse_args()
 
     main(args, ddconfig)
