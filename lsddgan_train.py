@@ -104,7 +104,7 @@ def train(device, args):
     coeff = diffusion.Diffusion_Coefficients(args, device)
     pos_coeff = diffusion.Posterior_Coefficients(args, device)
     T = diffusion.get_time_schedule(args, device)
-    VAE = load_VAE_Model(f=args.f, d=args.d, ppath=args.model_ppath, device)
+    VAE = load_VAE_Model(device, f=args.f, d=args.d, ppath=args.model_ppath)
 
     if args.resume:
         checkpoint_file = os.path.join(exp_path, 'content.pth')

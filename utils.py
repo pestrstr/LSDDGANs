@@ -4,7 +4,7 @@ import glob
 import torch
 
 # Load trained VAE model
-def load_VAE_Model(f=4, d=3, ppath="./lightning_logs", device):
+def load_VAE_Model(device, f=4, d=3, ppath="./lightning_logs"):
     model_path = "{path}/f={a}_d={b}/checkpoints".format(path=ppath, a=f, b=d)
     checkpoints = glob.glob(f'{model_path}/*.ckpt')
     if len(checkpoints) == 0:
