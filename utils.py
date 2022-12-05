@@ -1,13 +1,15 @@
 import sys
 import os
 import glob
+import torch
 
-def load_VAE_Model(f=4, d=3, ppath="./lightning_logs"):
+# Load trained VAE model
+def load_VAE_Model(f=4, d=3, ppath="./lightning_logs", device):
     model_path = "{path}/f={a}_d={b}/checkpoints".format(path=ppath, a=f, b=d)
-    checkpoint = glob.glob(model_path)[0]
-    print(checkpoint)
+    # Only one checkpoint expected in the directory
+    checkpoint_file = glob.glob(f'{model_path}/*.ckpt')[0]
+    if device is None:
+        device = 'cpu'
+    return torch.load(checkpoint_file, map_location=device)
 
-if __name__ == '__main__':
-    ## Use this for testing
-    load_VAE_Model()
 
