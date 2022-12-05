@@ -63,9 +63,9 @@ class ImageLogger(Callback):
                 pl_module.eval()
 
             # Testing reconstruction capabilities
-            batch = batch[:self.max_images]
+            inputs = batch[0][:self.max_images]
             with torch.no_grad():
-                images_post = pl_module.log_images(batch, **self.log_images_kwargs)["samples"]
+                images_post = pl_module.log_images(inputs, **self.log_images_kwargs)["samples"]
                 images_prior = pl_module.prior_sampling(self.max_images)
                       
             if isinstance(images_post, torch.Tensor):
@@ -124,7 +124,7 @@ def main(hparams, ddconfig):
 
     fmnist_val_loader = torch.utils.data.DataLoader(fmnist_val,
                                             batch_size=hparams.batch_size,
-                                            shuffle=True,
+                                            shuffle=False,
                                             num_workers=4,
                                             pin_memory=True,
                                             drop_last = True)
