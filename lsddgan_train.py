@@ -136,29 +136,34 @@ def train(device, args):
 
         for iteration, (x,y) in enumerate(data_loader):
             
+            # Sample from x_0, obtaining z_0
+            # Then, train the DDPM (with Denoising Diffusion GANs) in the latent space
+            x.to(device, non_blocking=True)
+
             with torch.no_grad():
                 posterior = VAE.encode(x)
-                z = posterior.sample()
+                z_0 = posterior.sample()
             
-            print(f'z.shape: {z.shape}')
+            print(f'z_0.shape: {z_0.shape}')
 
             for p in netD.parameters():  
                 p.requires_grad = True  
             
             netD.zero_grad()
             
-            #sample from p(x_0)
-            real_data = x.to(device, non_blocking=True)
+            #z_0 - In the latent space, z_0 is "compressed" version of x_0
+            real_data = z_0
             
             #sample t
             t = torch.randint(0, args.num_timesteps, (real_data.size(0),), device=device)
             
-            x_t, x_tp1 = diffusion.q_sample_pairs(coeff, real_data, t)
-            x_t.requires_grad = True
+            z_t, z_tp1 = diffusion.q_sample_pairs(coeff, real_data, t)
+            z_t.requires_grad = True
             
     
             # train with real
-            D_real = netD(x_t, t, x_tp1.detach()).view(-1)
+            # Both discriminator and generator work in the latent space
+            D_real = netD(z_t, t, z_tp1.detach()).view(-1)
             
             errD_real = F.softplus(-D_real)
             errD_real = errD_real.mean()
@@ -168,7 +173,7 @@ def train(device, args):
             
             if args.lazy_reg is None:
                 grad_real = torch.autograd.grad(
-                            outputs=D_real.sum(), inputs=x_t, create_graph=True
+                            outputs=D_real.sum(), inputs=z_t, create_graph=True
                             )[0]
                 grad_penalty = (
                                 grad_real.view(grad_real.size(0), -1).norm(2, dim=1) ** 2
@@ -180,7 +185,7 @@ def train(device, args):
             else:
                 if global_step % args.lazy_reg == 0:
                     grad_real = torch.autograd.grad(
-                            outputs=D_real.sum(), inputs=x_t, create_graph=True
+                            outputs=D_real.sum(), inputs=z_t, create_graph=True
                             )[0]
                     grad_penalty = (
                                 grad_real.view(grad_real.size(0), -1).norm(2, dim=1) ** 2
@@ -193,11 +198,10 @@ def train(device, args):
             # train with fake
             latent_z = torch.randn(batch_size, nz, device=device)
             
-         
-            x_0_predict = netG(x_tp1.detach(), t, latent_z)
-            x_pos_sample = diffusion.sample_posterior(pos_coeff, x_0_predict, x_tp1, t)
+            z_0_predict = netG(z_tp1.detach(), t, latent_z)
+            z_pos_sample = diffusion.sample_posterior(pos_coeff, z_0_predict, z_tp1, t)
             
-            output = netD(x_pos_sample, t, x_tp1.detach()).view(-1)
+            output = netD(z_pos_sample, t, z_tp1.detach()).view(-1)
                 
             
             errD_fake = F.softplus(output)
@@ -217,15 +221,15 @@ def train(device, args):
             t = torch.randint(0, args.num_timesteps, (real_data.size(0),), device=device)
             
             
-            x_t, x_tp1 = diffusion.q_sample_pairs(coeff, real_data, t)
+            z_t, z_tp1 = diffusion.q_sample_pairs(coeff, real_data, t)
                 
             
             latent_z = torch.randn(batch_size, nz,device=device)
             
-            x_0_predict = netG(x_tp1.detach(), t, latent_z)
-            x_pos_sample = diffusion.sample_posterior(pos_coeff, x_0_predict, x_tp1, t)
+            z_0_predict = netG(z_tp1.detach(), t, latent_z)
+            z_pos_sample = diffusion.sample_posterior(pos_coeff, z_0_predict, z_tp1, t)
             
-            output = netD(x_pos_sample, t, x_tp1.detach()).view(-1)
+            output = netD(z_pos_sample, t, z_tp1.detach()).view(-1)
                
             
             errG = F.softplus(-output)
@@ -247,8 +251,10 @@ def train(device, args):
             schedulerG.step()
             schedulerD.step()
         
-        # Test model every epoch
-
+        # After obtaining z_pos_sample, pass it to the trained VAE decoder
+        with torch.no_grad():
+            x_pos_sample = VAE.decode(z_pos_sample)
+        
         torchvision.utils.save_image(x_pos_sample, os.path.join(exp_path, 'xpos_epoch_{}.png'.format(epoch)), normalize=True)
         
         x_t_1 = torch.randn_like(real_data)

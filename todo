@@ -1,0 +1,3 @@
+ADD:
+    Image path must depend on the trained VAE version
+    Right now, new samples from trained models overwrite previous samples
