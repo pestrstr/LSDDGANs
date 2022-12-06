@@ -128,9 +128,15 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
+# CIFAR10 data
+data
+
 # trained models
 lightning_logs/version_*
 events.out.tfevents.*
 hparams.yaml
 *.pth
 *.ckpt
+
+# dependencies
+ninja-linux.zip

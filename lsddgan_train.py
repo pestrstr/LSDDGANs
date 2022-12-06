@@ -104,7 +104,7 @@ def train(device, args):
     coeff = diffusion.Diffusion_Coefficients(args, device)
     pos_coeff = diffusion.Posterior_Coefficients(args, device)
     T = diffusion.get_time_schedule(args, device)
-    VAE = load_VAE_Model(device, f=args.f, d=args.d, ppath=args.model_ppath)
+    VAE = load_VAE_Model(device, f=args.f, d=args.d, emb_dim=args.vae_emb_dim, ppath=args.model_ppath)
 
     if args.resume:
         checkpoint_file = os.path.join(exp_path, 'content.pth')
@@ -372,6 +372,7 @@ if __name__ == '__main__':
     ## Loading trained VAE model
     parser.add_argument('--f', type=int, default=4, help='f ratio for latent space compression')
     parser.add_argument('--d', type=int, default=3, help='latent space dimensionality')
+    parser.add_argument('--vae_emb_dim', type=int, default=3, help='vae emb dimension')
     parser.add_argument('--model_ppath', type=str, default='./lightning_logs', help='parent folder for vae checkpoints')
 
     args = parser.parse_args() 

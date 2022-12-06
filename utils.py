@@ -2,7 +2,7 @@ import sys
 import os
 import glob
 import torch
-from .models.autoencoder import AutoencoderKL
+from models.autoencoder import AutoencoderKL
 
 # TODO: Add other configuration
 config_dict = {
@@ -37,7 +37,7 @@ config_dict = {
 
 # Load trained VAE model
 def load_VAE_Model(device, f=4, d=3, embed_dim=3, ppath="./lightning_logs"):
-    model_path = "{path}/f={a}_d={b}/checkpoints".format(path=ppath, a=f, b=d)
+    model_path = "{path}/f={a}_d={b}_embed_dim={c}/checkpoints".format(path=ppath, a=f, b=d, c=embed_dim)
     checkpoints = glob.glob(f'{model_path}/*.ckpt')
     if len(checkpoints) == 0:
         print("No VAE checkpoints found for setup f={a}, d={b}".format(a=f, b=d))
