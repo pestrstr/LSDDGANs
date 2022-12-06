@@ -39,16 +39,17 @@ config_dict = {
 def load_VAE_Model(device, f=4, d=3, embed_dim=3, ppath="./lightning_logs"):
     model_path = "{path}/f={a}_d={b}_embed_dim={c}/checkpoints".format(path=ppath, a=f, b=d, c=embed_dim)
     checkpoints = glob.glob(f'{model_path}/*.ckpt')
+    print(f"found {checkpoints}")
     if len(checkpoints) == 0:
-        print("No VAE checkpoints found for setup f={a}, d={b}".format(a=f, b=d))
+        print("No VAE checkpoints found for setup f={a}, d={b} at path {p}".format(a=f, b=d, p=model_path))
         sys.exit(0)
     # Only one checkpoint expected in the directory        
     checkpoint_file = checkpoints[0]
-    if device is None:
-        device = 'cpu'
     model = AutoencoderKL(ddconfig=config_dict[(f,d)], embed_dim=embed_dim)
-    ckpt = torch.load(checkpoint_file, map_location=device)
-    model.load_state_dict(ckpt["state_dict"])
+    model_dict = torch.load(checkpoint_file, map_location=device)
+    # print(model_dict)
+    model.load_state_dict(model_dict["state_dict"])
+    model.to(device)
     return model
 
 

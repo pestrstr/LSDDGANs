@@ -76,8 +76,13 @@ def train(device, args):
                                                pin_memory=True,
                                                drop_last = True)
     
+    ## Number of channels in the latent space is equal to the embedding dim for the VAE
+    args.num_channels = args.vae_emb_dim
+    ## Image size is reduced by a factor of f
+    args.image_size = args.image_size // args.f
+
     netG = NCSNpp(args).to(device)
-  
+
     netD = Discriminator(nc = 2*args.num_channels, ngf = args.ngf,
                             t_emb_dim = args.t_emb_dim,
                             act=nn.LeakyReLU(0.2)).to(device)
@@ -104,7 +109,10 @@ def train(device, args):
     coeff = diffusion.Diffusion_Coefficients(args, device)
     pos_coeff = diffusion.Posterior_Coefficients(args, device)
     T = diffusion.get_time_schedule(args, device)
-    VAE = load_VAE_Model(device, f=args.f, d=args.d, emb_dim=args.vae_emb_dim, ppath=args.model_ppath)
+
+    ## Load pre-trained VAE model
+    print(f"loading VAE model with f={args.f}, d={args.d}, embed_dim={args.vae_emb_dim} on device={device}")
+    VAE = load_VAE_Model(device, f=args.f, d=args.d, embed_dim=args.vae_emb_dim, ppath=args.model_ppath)
 
     if args.resume:
         checkpoint_file = os.path.join(exp_path, 'content.pth')
@@ -138,13 +146,13 @@ def train(device, args):
             
             # Sample from x_0, obtaining z_0
             # Then, train the DDPM (with Denoising Diffusion GANs) in the latent space
-            x.to(device, non_blocking=True)
+            x = x.to(device, non_blocking=True)
 
             with torch.no_grad():
                 posterior = VAE.encode(x)
                 z_0 = posterior.sample()
             
-            print(f'z_0.shape: {z_0.shape}')
+            # print(f'z_0.shape: {z_0.shape}')
 
             for p in netD.parameters():  
                 p.requires_grad = True  
@@ -153,14 +161,13 @@ def train(device, args):
             
             #z_0 - In the latent space, z_0 is "compressed" version of x_0
             real_data = z_0
-            
+            real_data.to(device)
             #sample t
             t = torch.randint(0, args.num_timesteps, (real_data.size(0),), device=device)
             
             z_t, z_tp1 = diffusion.q_sample_pairs(coeff, real_data, t)
             z_t.requires_grad = True
             
-    
             # train with real
             # Both discriminator and generator work in the latent space
             D_real = netD(z_t, t, z_tp1.detach()).view(-1)
@@ -199,6 +206,7 @@ def train(device, args):
             latent_z = torch.randn(batch_size, nz, device=device)
             
             z_0_predict = netG(z_tp1.detach(), t, latent_z)
+            
             z_pos_sample = diffusion.sample_posterior(pos_coeff, z_0_predict, z_tp1, t)
             
             output = netD(z_pos_sample, t, z_tp1.detach()).view(-1)
@@ -218,11 +226,9 @@ def train(device, args):
                 p.requires_grad = False
             netG.zero_grad()
             
-            t = torch.randint(0, args.num_timesteps, (real_data.size(0),), device=device)
-            
+            t = torch.randint(0, args.num_timesteps, (real_data.size(0),), device=device)            
             
             z_t, z_tp1 = diffusion.q_sample_pairs(coeff, real_data, t)
-                
             
             latent_z = torch.randn(batch_size, nz,device=device)
             
@@ -257,8 +263,12 @@ def train(device, args):
         
         torchvision.utils.save_image(x_pos_sample, os.path.join(exp_path, 'xpos_epoch_{}.png'.format(epoch)), normalize=True)
         
-        x_t_1 = torch.randn_like(real_data)
-        fake_sample = diffusion.sample_from_model(pos_coeff, netG, args.num_timesteps, x_t_1, T, args)
+        z_t_1 = torch.randn_like(real_data)
+        z_fake_sample = diffusion.sample_from_model(pos_coeff, netG, args.num_timesteps, z_t_1, T, args)
+        
+        with torch.no_grad():
+            fake_sample = VAE.decode(z_fake_sample)
+
         torchvision.utils.save_image(fake_sample, os.path.join(exp_path, 'sample_discrete_epoch_{}.png'.format(epoch)), normalize=True)
         
         if args.save_content:

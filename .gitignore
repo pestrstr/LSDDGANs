@@ -137,6 +137,7 @@ events.out.tfevents.*
 hparams.yaml
 *.pth
 *.ckpt
+saved_info
 
 # dependencies
 ninja-linux.zip
