@@ -133,15 +133,15 @@ def main(hparams, ddconfig):
 
 
 if __name__ == '__main__':
-  # f = 4, d = 3, z 8x8x3
+  # f = 8, d = 4, z 4x4x4
     ddconfig = {
       "double_z": True,
-      "z_channels": 3,
+      "z_channels": 4,
       "resolution": 32,
       "in_channels": 1,
       "out_ch": 1,
       "ch": 128,
-      "ch_mult": [1,2,4],  
+      "ch_mult": [1,2,4,4],  
       "num_res_blocks": 2,
       "attn_resolutions": [],
       "dropout": 0.0,
@@ -153,7 +153,7 @@ if __name__ == '__main__':
     parser.add_argument("--devices", default=1)
     parser.add_argument("--batch_size", default=100)
     parser.add_argument("--max_epochs", default=20)
-    parser.add_argument("--embed_dim", default=3)
+    parser.add_argument("--embed_dim", default=4)
     args = parser.parse_args()
 
     main(args, ddconfig)
