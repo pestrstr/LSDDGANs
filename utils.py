@@ -36,7 +36,7 @@ config_dict = {
 
 
 # Load trained VAE model
-def load_VAE_Model(device, f=4, d=3, embed_dim=64, ppath="./lightning_logs"):
+def load_VAE_Model(device, f=4, d=3, embed_dim=3, ppath="./lightning_logs"):
     model_path = "{path}/f={a}_d={b}/checkpoints".format(path=ppath, a=f, b=d)
     checkpoints = glob.glob(f'{model_path}/*.ckpt')
     if len(checkpoints) == 0:
@@ -46,7 +46,9 @@ def load_VAE_Model(device, f=4, d=3, embed_dim=64, ppath="./lightning_logs"):
     checkpoint_file = checkpoints[0]
     if device is None:
         device = 'cpu'
-    model = AutoencoderKL(ddconfig=config_dict[(f,d)], embed_dim=)
-    return torch.load(checkpoint_file, map_location=device)
+    model = AutoencoderKL(ddconfig=config_dict[(f,d)], embed_dim=embed_dim)
+    ckpt = torch.load(checkpoint_file, map_location=device)
+    model.load_state_dict(ckpt["state_dict"])
+    return model
 
 
