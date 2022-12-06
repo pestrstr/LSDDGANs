@@ -164,9 +164,10 @@ def train(device, args):
 
             # Transitioning to latent space
             with torch.no_grad():
-                z_t = VAE.encode(x_t)
-                z_tp1 = VAE.encode(x_tp1)
+                z_t = VAE.encode(x_t).sample()
+                z_tp1 = VAE.encode(x_tp1).sample()
 
+            z_t.requires_grad = True
             # Discriminator and Generator now works in the latent space
 
             D_real = netD(z_t, t, z_tp1.detach()).view(-1)
@@ -215,7 +216,7 @@ def train(device, args):
 
             # We switch again to the latent space, for learning a Discriminator in the latent space
             with torch.no_grad():
-                z_pos_sample = VAE.encode(x_pos_sample)
+                z_pos_sample = VAE.encode(x_pos_sample).sample()
 
             output = netD(z_pos_sample, t, z_tp1.detach()).view(-1)
                 
@@ -239,8 +240,8 @@ def train(device, args):
             
             # transition to latent space
             with torch.no_grad():
-                z_t = VAE.encode(x_t)
-                z_tp1 = VAE.encode(x_tp1)
+                z_t = VAE.encode(x_t).sample()
+                z_tp1 = VAE.encode(x_tp1).sample()
 
             # z sampled from the simple prior of the generator - it gives multimodality us multimodality in the latent space
             latent_z = torch.randn(batch_size, nz,device=device)
@@ -253,8 +254,9 @@ def train(device, args):
             x_pos_sample = diffusion.sample_posterior(pos_coeff, x_0_predict, x_tp1, t)
             
             with torch.no_grad():
-                z_pos_sample = VAE.encode(x_pos_sample)
+                z_pos_sample = VAE.encode(x_pos_sample).sample()
 
+            z_pos_sample.requires_grad = T
             output = netD(z_pos_sample, t, z_tp1.detach()).view(-1)
                            
             errG = F.softplus(-output)
