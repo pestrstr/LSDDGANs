@@ -144,32 +144,31 @@ def train(device, args):
 
         for iteration, (x,y) in enumerate(data_loader):
             
-            # Sample from x_0, obtaining z_0
-            # Then, train the DDPM (with Denoising Diffusion GANs) in the latent space
-            x = x.to(device, non_blocking=True)
-
-            with torch.no_grad():
-                posterior = VAE.encode(x)
-                z_0 = posterior.sample()
-            
-            # print(f'z_0.shape: {z_0.shape}')
+            # Sample from x_0
+            x_0 = x.to(device, non_blocking=True)
 
             for p in netD.parameters():  
                 p.requires_grad = True  
             
             netD.zero_grad()
             
-            #z_0 - In the latent space, z_0 is "compressed" version of x_0
-            real_data = z_0
-            real_data.to(device)
+            real_data = x_0
+
             #sample t
             t = torch.randint(0, args.num_timesteps, (real_data.size(0),), device=device)
             
-            z_t, z_tp1 = diffusion.q_sample_pairs(coeff, real_data, t)
-            z_t.requires_grad = True
+            x_t, x_tp1 = diffusion.q_sample_pairs(coeff, real_data, t)
+            x_t.requires_grad = True
             
             # train with real
-            # Both discriminator and generator work in the latent space
+
+            # Transitioning to latent space
+            with torch.no_grad():
+                z_t = VAE.encode(x_t)
+                z_tp1 = VAE.encode(x_tp1)
+
+            # Discriminator and Generator now works in the latent space
+
             D_real = netD(z_t, t, z_tp1.detach()).view(-1)
             
             errD_real = F.softplus(-D_real)
@@ -207,11 +206,19 @@ def train(device, args):
             
             z_0_predict = netG(z_tp1.detach(), t, latent_z)
             
-            z_pos_sample = diffusion.sample_posterior(pos_coeff, z_0_predict, z_tp1, t)
+            # Transition to Image Space
+            with torch.no_grad():
+                x_0_predict = VAE.decode(z_0_predict)
             
+            # We sample from the posterior q(x_t-1|x_t, x_0_predicted) that works in the Image Space
+            x_pos_sample = diffusion.sample_posterior(pos_coeff, x_0_predict, x_tp1, t)
+
+            # We switch again to the latent space, for learning a Discriminator in the latent space
+            with torch.no_grad():
+                z_pos_sample = VAE.encode(x_pos_sample)
+
             output = netD(z_pos_sample, t, z_tp1.detach()).view(-1)
                 
-            
             errD_fake = F.softplus(output)
             errD_fake = errD_fake.mean()
             errD_fake.backward()
@@ -228,16 +235,28 @@ def train(device, args):
             
             t = torch.randint(0, args.num_timesteps, (real_data.size(0),), device=device)            
             
-            z_t, z_tp1 = diffusion.q_sample_pairs(coeff, real_data, t)
+            x_t, x_tp1 = diffusion.q_sample_pairs(coeff, real_data, t)
             
+            # transition to latent space
+            with torch.no_grad():
+                z_t = VAE.encode(x_t)
+                z_tp1 = VAE.encode(x_tp1)
+
+            # z sampled from the simple prior of the generator - it gives multimodality us multimodality in the latent space
             latent_z = torch.randn(batch_size, nz,device=device)
             
             z_0_predict = netG(z_tp1.detach(), t, latent_z)
-            z_pos_sample = diffusion.sample_posterior(pos_coeff, z_0_predict, z_tp1, t)
+
+            with torch.no_grad():
+                x_0_predict = VAE.decode(z_0_predict)
+
+            x_pos_sample = diffusion.sample_posterior(pos_coeff, x_0_predict, x_tp1, t)
             
+            with torch.no_grad():
+                z_pos_sample = VAE.encode(x_pos_sample)
+
             output = netD(z_pos_sample, t, z_tp1.detach()).view(-1)
-               
-            
+                           
             errG = F.softplus(-output)
             errG = errG.mean()
             
@@ -256,16 +275,18 @@ def train(device, args):
             
             schedulerG.step()
             schedulerD.step()
-        
-        # After obtaining z_pos_sample, pass it to the trained VAE decoder
-        with torch.no_grad():
-            x_pos_sample = VAE.decode(z_pos_sample)
-        
+         
         torchvision.utils.save_image(x_pos_sample, os.path.join(exp_path, 'xpos_epoch_{}.png'.format(epoch)), normalize=True)
         
-        z_t_1 = torch.randn_like(real_data)
+        # Generating Samples 
+        z_t_1 = torch.randn_like(z_t)
+
+        # Sampling from the model happens in the latent space,
+        # as we trained the Generator in the latent space
         z_fake_sample = diffusion.sample_from_model(pos_coeff, netG, args.num_timesteps, z_t_1, T, args)
         
+        # After denoising our samples in the latent space (as we learned during training), we decode the obtained sample
+        # in the image space
         with torch.no_grad():
             fake_sample = VAE.decode(z_fake_sample)
 
