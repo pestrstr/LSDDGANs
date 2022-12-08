@@ -37,23 +37,10 @@ from EMA import EMA
 import shutil
 
 ## VAE model 
-from utils import load_VAE_Model
+from utils import load_VAE_Model, load_pretrained
 
 def copy_source(file, output_dir):
     shutil.copyfile(file, os.path.join(output_dir, os.path.basename(file)))
-
-## Encode in the latent space
-def get_first_stage_encoding(scale_factor, encoder_posterior, scale = True):
-    if isinstance(encoder_posterior, DiagonalGaussianDistribution):
-        z = encoder_posterior.sample()
-    elif isinstance(encoder_posterior, torch.Tensor):
-        z = encoder_posterior
-    else:
-        raise NotImplementedError(f"encoder_posterior of type '{type(encoder_posterior)}' not yet implemented")
-    if scale == True:
-        return 1. / scale_factor * z
-    else:
-        return z
 
 ## Train function ##
 def train(device, args):    
@@ -126,7 +113,8 @@ def train(device, args):
 
     ## Load pre-trained VAE model
     print(f"loading VAE model with f={args.f}, d={args.d}, embed_dim={args.vae_emb_dim} on device={device}")
-    VAE = load_VAE_Model(device, f=args.f, d=args.d, embed_dim=args.vae_emb_dim, ppath=args.model_ppath)
+    # VAE = load_VAE_Model(device, f=args.f, d=args.d, embed_dim=args.vae_emb_dim, ppath=args.model_ppath) 
+    VAE = load_pretrained(device, f=args.f, d=args.d, type='kl')
 
     if args.resume:
         checkpoint_file = os.path.join(exp_path, 'content.pth')
@@ -160,29 +148,34 @@ def train(device, args):
             
             # Sample from x_0
             x_0 = x.to(device, non_blocking=True)
-
             with torch.no_grad():
-                if first_batch == True:
-                    # Estimate the scaling factor from the first batch
-                    # As shown in the Stable Diffusion paper
-                    z_0 = get_first_stage_encoding(args.scale_factor, VAE.encode(x_0), scale=False)
-                    mu_z = z_0.mean()
-                    sigma_z_sq = ((z_0 - mu_z)**2).mean()
-                    args.scale_factor = torch.sqrt(sigma_z_sq)
-                else:
-                    z_0 = get_first_stage_encoding(args.scale_factor, VAE.encode(x_0), scale=True)
+                encoder_posterior = VAE.encode(x_0)
+                z_0 = encoder_posterior.sample()
+                posterior_sample = VAE.decode(z_0)
 
+            if iteration % 1000 == 0:
+                torchvision.utils.save_image(posterior_sample, os.path.join(exp_path, 'posterior_epoch_{}_it_{}.png'.format(epoch, iteration)), normalize=True)
+
+            if first_batch == True:
+                # Estimate the scaling factor from the first batch
+                # As shown in the Stable Diffusion paper
+                mu_z = z_0.mean()
+                sigma_z_sq = ((z_0 - mu_z)**2).mean()
+                args.scale_factor = torch.sqrt(sigma_z_sq)
+                
+            z_0 = 1. / args.scale_factor * z_0
+            
             for p in netD.parameters():  
                 p.requires_grad = True  
-            
+
             netD.zero_grad()
-            
-            real_data = z_0
 
             #sample t
-            t = torch.randint(0, args.num_timesteps, (real_data.size(0),), device=device)
+            t = torch.randint(0, args.num_timesteps, (z_0.size(0),), device=device)
             
-            z_t, z_tp1 = diffusion.q_sample_pairs(coeff, real_data, t)
+            # z_t => z_{t-1}
+            # z_tp1 => z_{t}
+            z_t, z_tp1 = diffusion.q_sample_pairs(coeff, z_0, t)
             
             # train with real
             z_t.requires_grad = True
@@ -195,7 +188,6 @@ def train(device, args):
             
             errD_real.backward(retain_graph=True)
             
-            
             if args.lazy_reg is None:
                 grad_real = torch.autograd.grad(
                             outputs=D_real.sum(), inputs=z_t, create_graph=True
@@ -203,8 +195,7 @@ def train(device, args):
                 grad_penalty = (
                                 grad_real.view(grad_real.size(0), -1).norm(2, dim=1) ** 2
                                 ).mean()
-                
-                
+                 
                 grad_penalty = args.r1_gamma / 2 * grad_penalty
                 grad_penalty.backward()
             else:
@@ -216,7 +207,6 @@ def train(device, args):
                                 grad_real.view(grad_real.size(0), -1).norm(2, dim=1) ** 2
                                 ).mean()
                 
-                
                     grad_penalty = args.r1_gamma / 2 * grad_penalty
                     grad_penalty.backward()
 
@@ -225,7 +215,7 @@ def train(device, args):
             
             z_0_predict = netG(z_tp1.detach(), t, latent_z)
             
-            # We sample from the posterior q(x_t-1|x_t, x_0_predicted) that works in the Image Space
+            # We sample from the posterior q(z_t-1|z_t, z_0_predicted)
             z_pos_sample = diffusion.sample_posterior(pos_coeff, z_0_predict, z_tp1, t)
 
             output = netD(z_pos_sample, t, z_tp1.detach()).view(-1)
@@ -244,9 +234,9 @@ def train(device, args):
                 p.requires_grad = False
             netG.zero_grad()
             
-            t = torch.randint(0, args.num_timesteps, (real_data.size(0),), device=device)            
+            t = torch.randint(0, args.num_timesteps, (z_0.size(0),), device=device)            
             
-            z_t, z_tp1 = diffusion.q_sample_pairs(coeff, real_data, t)
+            z_t, z_tp1 = diffusion.q_sample_pairs(coeff, z_0, t)
 
             # z sampled from the simple prior of the generator - it gives us multimodality in the latent space
             latent_z = torch.randn(batch_size, nz,device=device)
@@ -273,7 +263,6 @@ def train(device, args):
             #    print('epoch {} iteration{}, G Loss: {}, D Loss: {}'.format(epoch,iteration, errG.item(), errD.item()))
         
         if not args.no_lr_decay:
-            
             schedulerG.step()
             schedulerD.step()
          
@@ -282,17 +271,25 @@ def train(device, args):
 
         torchvision.utils.save_image(x_pos_sample, os.path.join(exp_path, 'xpos_epoch_{}.png'.format(epoch)), normalize=True)
         
-        # Generating Samples 
-        z_t_1 = torch.randn_like(real_data)
+        # Predicted z_0
+        with torch.no_grad():
+            recon_x = VAE.decode(z_0_predict)
+        
+        torchvision.utils.save_image(recon_x, os.path.join(exp_path, 'xrecon_epoch_{}.png'.format(epoch)), normalize=True)
+
+        # Generating Samples - Sampling from prior
+        z_t_1 = torch.randn_like(z_0)
 
         # Sampling from the model happens in the latent space,
         # as we trained the Generator in the latent space
         z_fake_sample = diffusion.sample_from_model(pos_coeff, netG, args.num_timesteps, z_t_1, T, args)
-        
+
+        # Computing the nll of the denoised latent sample
+        print(f"nll of produced samples: {encoder_posterior.nll(z_fake_sample).mean()}")
         # After denoising our samples in the latent space (as we learned during training), we decode the obtained sample
         # in the image space
         with torch.no_grad():
-            fake_sample = VAE.decode(z_fake_sample)
+            fake_sample = VAE.decode(args.scale_factor * z_fake_sample)
 
         torchvision.utils.save_image(fake_sample, os.path.join(exp_path, 'sample_discrete_epoch_{}.png'.format(epoch)), normalize=True)
         

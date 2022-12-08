@@ -136,8 +136,10 @@ lightning_logs/version_*
 events.out.tfevents.*
 hparams.yaml
 *.pth
+*.pt
 *.ckpt
 saved_info
+pretrained
 
 # dependencies
 ninja-linux.zip

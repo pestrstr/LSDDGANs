@@ -298,7 +298,7 @@ class AutoencoderKL(pl.LightningModule):
         self.z_res = ddconfig["resolution"] // 2**(len(ddconfig["ch_mult"])-1) 
         self.encoder = Encoder(**ddconfig)
         self.decoder = Decoder(**ddconfig)
-        self.loss = LPIPSWithDiscriminator(disc_start=0, disc_in_channels=1)
+        self.loss = LPIPSWithDiscriminator(disc_start=0, disc_in_channels=ddconfig["in_channels"])
         self.learning_rate = ddconfig["lr"]
         assert ddconfig["double_z"]
         self.quant_conv = torch.nn.Conv2d(2*ddconfig["z_channels"], 2*embed_dim, 1)

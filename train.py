@@ -35,9 +35,6 @@ from EMA import EMA
 ## Utility functions ##
 import shutil
 
-## VAE model 
-from utils import load_VAE_Model
-
 def copy_source(file, output_dir):
     shutil.copyfile(file, os.path.join(output_dir, os.path.basename(file)))
 
@@ -104,7 +101,6 @@ def train(device, args):
     coeff = diffusion.Diffusion_Coefficients(args, device)
     pos_coeff = diffusion.Posterior_Coefficients(args, device)
     T = diffusion.get_time_schedule(args, device)
-    VAE = load_VAE_Model(f=args.f, d=args.d, ppath=args.model_ppath, device)
 
     if args.resume:
         checkpoint_file = os.path.join(exp_path, 'content.pth')
@@ -126,8 +122,6 @@ def train(device, args):
     else:
         global_step, epoch, init_epoch = 0, 0, 0
 
-    VAE.eval()
-
     for epoch in range(init_epoch, args.num_epoch+1):
         
         #TQDM Setting
@@ -135,12 +129,6 @@ def train(device, args):
         tq.set_description('epoch %d' % (epoch))
 
         for iteration, (x,y) in enumerate(data_loader):
-            
-            with torch.no_grad():
-                posterior = VAE.encode(x)
-                z = posterior.sample()
-            
-            print(f'z.shape: {z.shape}')
 
             for p in netD.parameters():  
                 p.requires_grad = True  
@@ -156,7 +144,6 @@ def train(device, args):
             x_t, x_tp1 = diffusion.q_sample_pairs(coeff, real_data, t)
             x_t.requires_grad = True
             
-    
             # train with real
             D_real = netD(x_t, t, x_tp1.detach()).view(-1)
             
@@ -164,7 +151,6 @@ def train(device, args):
             errD_real = errD_real.mean()
             
             errD_real.backward(retain_graph=True)
-            
             
             if args.lazy_reg is None:
                 grad_real = torch.autograd.grad(
@@ -193,13 +179,11 @@ def train(device, args):
             # train with fake
             latent_z = torch.randn(batch_size, nz, device=device)
             
-         
             x_0_predict = netG(x_tp1.detach(), t, latent_z)
             x_pos_sample = diffusion.sample_posterior(pos_coeff, x_0_predict, x_tp1, t)
             
             output = netD(x_pos_sample, t, x_tp1.detach()).view(-1)
                 
-            
             errD_fake = F.softplus(output)
             errD_fake = errD_fake.mean()
             errD_fake.backward()
@@ -215,7 +199,6 @@ def train(device, args):
             netG.zero_grad()
             
             t = torch.randint(0, args.num_timesteps, (real_data.size(0),), device=device)
-            
             
             x_t, x_tp1 = diffusion.q_sample_pairs(coeff, real_data, t)
                 

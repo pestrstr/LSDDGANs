@@ -11,6 +11,7 @@ from tqdm import tqdm
 
 ## Datasets ##
 import torchvision.transforms as transforms
+from torchvision.datasets import CIFAR10
 from datasets.FashionMNIST import FashionMNIST
 
 ## Parser ##
@@ -35,6 +36,12 @@ class ImageLogger(Callback):
     def log_local(self, save_dir, split, images,
                   global_step, current_epoch, batch_idx):
         root = os.path.join(save_dir, "lightning_logs/images", split)
+        filename = "gs-{:06}_e-{:06}_b-{:06}.png".format(
+            global_step,
+            current_epoch,
+            batch_idx)
+        torchvision.utils.save_image(images, os.path.join(root, filename), normalize=True)
+        '''
         for k, img in enumerate(images):
             grid = torchvision.utils.make_grid(img, nrow=4)
             if self.rescale:
@@ -50,6 +57,7 @@ class ImageLogger(Callback):
             path = os.path.join(root, filename)
             os.makedirs(os.path.split(path)[0], exist_ok=True)
             Image.fromarray(grid).save(path)
+        '''
 
     def log_img(self, pl_module, batch, batch_idx):
         if (self.check_frequency(batch_idx) and  # batch_idx % self.batch_freq == 0
@@ -100,48 +108,77 @@ class ImageLogger(Callback):
 
 def main(hparams, ddconfig):
     model = AutoencoderKL(ddconfig=ddconfig, embed_dim=hparams.embed_dim)
-    logger_callback = ImageLogger(batch_frequency=200, max_images=1)
+    logger_callback = ImageLogger(batch_frequency=200, max_images=64)
     trainer = pl.Trainer(accelerator=hparams.accelerator, 
                           devices=hparams.devices, 
                           max_epochs=hparams.max_epochs,
                           callbacks=[logger_callback])
+
+    if hparams.dataset == 'cifar10':
+
+        train_dataset = CIFAR10('./data', train=True, transform=transforms.Compose([
+                transforms.Resize(32),
+                transforms.RandomHorizontalFlip(),
+                transforms.ToTensor(),
+                transforms.Normalize((0.5,0.5,0.5), (0.5,0.5,0.5))]), download=True) 
+        test_dataset = CIFAR10('./data', train=False, transform=transforms.Compose([
+                transforms.Resize(32),
+                transforms.RandomHorizontalFlip(),
+                transforms.ToTensor(),
+                transforms.Normalize((0.5,0.5,0.5), (0.5,0.5,0.5))]), download=True)
+
+        train_loader = torch.utils.data.DataLoader(train_dataset,
+                                        batch_size=hparams.batch_size,
+                                        shuffle=True,
+                                        num_workers=4,
+                                        pin_memory=True,
+                                        drop_last = True)
+
+        eval_loader = torch.utils.data.DataLoader(test_dataset,
+                                        batch_size=hparams.batch_size,
+                                        shuffle=False,
+                                        num_workers=4,
+                                        pin_memory=True,
+                                        drop_last = True)
+
+
+    elif hparams.dataset == 'fashion_mnist':
+        transform = transforms.Compose([
+                        transforms.ToPILImage(),
+                        transforms.Resize(32),
+                        transforms.RandomHorizontalFlip(),
+                        transforms.ToTensor(),
+                        transforms.Normalize((0.5,), (0.5,))])
+        fmnist_train = FashionMNIST(path='./datasets/fashion_mnist', transform=transform)
+        fmnist_val = FashionMNIST(path='./datasets/fashion_mnist', transform=transform, train=False)
     
-    transform = transforms.Compose([
-                    transforms.ToPILImage(),
-                    transforms.Resize(32),
-                    transforms.RandomHorizontalFlip(),
-                    transforms.ToTensor(),
-                    transforms.Normalize((0.5,), (0.5,))])
-    fmnist_train = FashionMNIST(path='./datasets/fashion_mnist', transform=transform)
-    fmnist_val = FashionMNIST(path='./datasets/fashion_mnist', transform=transform, train=False)
-    
-    fmnist_train_loader = torch.utils.data.DataLoader(fmnist_train,
+        train_loader = torch.utils.data.DataLoader(fmnist_train,
                                             batch_size=hparams.batch_size,
                                             shuffle=True,
                                             num_workers=4,
                                             pin_memory=True,
                                             drop_last = True)
 
-    fmnist_val_loader = torch.utils.data.DataLoader(fmnist_val,
+        eval_loader = torch.utils.data.DataLoader(fmnist_val,
                                             batch_size=hparams.batch_size,
                                             shuffle=False,
                                             num_workers=4,
                                             pin_memory=True,
                                             drop_last = True)
 
-    trainer.fit(model, fmnist_train_loader, fmnist_val_loader)
+    trainer.fit(model, train_loader, eval_loader)
 
 
 if __name__ == '__main__':
-  # f = 8, d = 4, z 4x4x4
+  # f = 4, d = 3, z 3x8x8
     ddconfig = {
       "double_z": True,
-      "z_channels": 4,
+      "z_channels": 3,
       "resolution": 32,
-      "in_channels": 1,
-      "out_ch": 1,
+      "in_channels": 3,
+      "out_ch": 3,
       "ch": 128,
-      "ch_mult": [1,2,4,4],  
+      "ch_mult": [1,2,4],  
       "num_res_blocks": 2,
       "attn_resolutions": [],
       "dropout": 0.0,
@@ -151,52 +188,10 @@ if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument("--accelerator", default='gpu')
     parser.add_argument("--devices", default=1)
-    parser.add_argument("--batch_size", default=100)
-    parser.add_argument("--max_epochs", default=20)
-    parser.add_argument("--embed_dim", default=4)
+    parser.add_argument("--batch_size", type=int, default=100)
+    parser.add_argument("--max_epochs", type=int, default=40)
+    parser.add_argument("--embed_dim", type=int, default=ddconfig["z_channels"])
+    parser.add_argument("--dataset", type=str, default='cifar10')
     args = parser.parse_args()
 
     main(args, ddconfig)
-
-## Testing Function ##
-class PerceptualVAETrainer():
-  def __init__(self, config):
-    super().__init__()
-    self.model = config["model"]
-    self.optimizer_AE = config["optimizer_AE"]
-    self.optimizer_D = config["optimizer_D"]
-    self.train_loader = config["train_loader"]
-    self.test_loader = config["test_loader"]
-    self.n_epochs = config["n_epochs"]
-    self.batch_size = config["batch_size"]
-
-  def train(self):
-    self.model.train()
-    for epoch in range(self.n_epochs):
-
-        #TQDM Setting
-        tq = tqdm(total = len(self.train_loader) * self.batch_size, position=0, leave=True) 
-        tq.set_description('epoch %d' % (epoch))
-
-        for _, (x,y) in enumerate(self.train_loader):
-          # Train Encoder+Decoder+logvar
-          self.optimizer_AE.zero_grad()
-          loss_AE = self.model.training_step(x, None, 0)
-          loss_AE.backward()
-          self.optimizer_AE.step()
-
-          # Train Discriminator
-          self.optimizer_D.zero_grad()
-          loss_D = self.model.training_step(x, None, 1)
-          loss_D.backward()
-          self.optimizer_D.step()
-
-          #Print statistics
-          tq.update(self.batch_size)
-          tq.set_postfix({"AE Loss" : f'{loss_AE.item():.6f}', "D Loss" : f'{loss_D.item():.6f}'})    
-    
-    tq.close()
-  
-  def evaluate(self):
-    # TODO: Implement evaluate function
-    pass
