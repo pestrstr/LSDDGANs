@@ -157,13 +157,13 @@ def train(device, args):
                 torchvision.utils.save_image(posterior_sample, os.path.join(exp_path, 'posterior_epoch_{}_it_{}.png'.format(epoch, iteration)), normalize=True)
 
             if first_batch == True:
-                # Estimate the scaling factor from the first batch
-                # As shown in the Stable Diffusion paper
-                mu_z = z_0.mean()
-                sigma_z_sq = ((z_0 - mu_z)**2).mean()
-                args.scale_factor = torch.sqrt(sigma_z_sq)
-                
-            z_0 = 1. / args.scale_factor * z_0
+                # Estimate the scaling factor from the first batch only
+                # As shown in the Stable Diffusion paper (see Appendix D)
+                args.scale_factor = 1. / z_0.flatten().std()
+                first_batch = False
+
+            # first stage encoding    
+            z_0 = args.scale_factor * z_0
             
             for p in netD.parameters():  
                 p.requires_grad = True  
