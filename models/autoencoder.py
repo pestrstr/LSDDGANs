@@ -404,15 +404,6 @@ class AutoencoderKL(pl.LightningModule):
         log["reconstructions"] = xrec
         log["inputs"] = x
         return log
-    
-    # Sampling from Prior
-    @torch.no_grad()
-    def prior_sampling(self, n_images):
-        z = torch.randn((n_images, self.embed_dim, self.z_res, self.z_res)).to(self.device)
-        samples = self.decode(z)
-        return samples
-
-
 
 
 class IdentityFirstStage(torch.nn.Module):

@@ -35,15 +35,9 @@ class ImageLogger(Callback):
 
     def log_local(self, save_dir, split, images,
                   global_step, current_epoch, batch_idx):
-        root = os.path.join(save_dir, "lightning_logs/images", split)
-        filename = "gs-{:06}_e-{:06}_b-{:06}.png".format(
-            global_step,
-            current_epoch,
-            batch_idx)
-        torchvision.utils.save_image(images, os.path.join(root, filename), normalize=True)
-        '''
-        for k, img in enumerate(images):
-            grid = torchvision.utils.make_grid(img, nrow=4)
+        root = os.path.join(save_dir, "images", split)
+        for k in images:
+            grid = torchvision.utils.make_grid(images[k], nrow=4)
             if self.rescale:
                 grid = (grid + 1.0) / 2.0  # -1,1 -> 0,1; c,h,w
             grid = grid.transpose(0, 1).transpose(1, 2).squeeze(-1)
@@ -57,14 +51,12 @@ class ImageLogger(Callback):
             path = os.path.join(root, filename)
             os.makedirs(os.path.split(path)[0], exist_ok=True)
             Image.fromarray(grid).save(path)
-        '''
 
-    def log_img(self, pl_module, batch, batch_idx):
+    def log_img(self, pl_module, batch, batch_idx, split="train"):
         if (self.check_frequency(batch_idx) and  # batch_idx % self.batch_freq == 0
             hasattr(pl_module, "log_images") and
               callable(pl_module.log_images) and
               self.max_images > 0):
-            logger = type(pl_module.logger)
 
             is_train = pl_module.training
             if is_train:
@@ -72,25 +64,20 @@ class ImageLogger(Callback):
 
             # Testing reconstruction capabilities
             inputs = batch[0][:self.max_images]
+
             with torch.no_grad():
-                images_post = pl_module.log_images(inputs, **self.log_images_kwargs)["samples"]
-                images_prior = pl_module.prior_sampling(self.max_images)
+                images = pl_module.log_images(inputs, **self.log_images_kwargs)
                       
-            if isinstance(images_post, torch.Tensor):
-                images_post = images_post.detach().cpu()
-                if self.clamp:
-                    images_post = torch.clamp(images_post, -1., 1.)
+            for k in images:
+                N = min(images[k].shape[0], self.max_images)
+                images[k] = images[k][:N]
+                if isinstance(images[k], torch.Tensor):
+                    images[k] = images[k].detach().cpu()
+                    if self.clamp:
+                        images[k] = torch.clamp(images[k], -1., 1.)
 
-            if isinstance(images_prior, torch.Tensor):
-                images_prior = images_prior.detach().cpu()
-                if self.clamp:
-                    images_prior = torch.clamp(images_prior, -1., 1.)
-
-            self.log_local(pl_module.logger.save_dir, "posterior", images_post,
+            self.log_local(pl_module.logger.save_dir, split, images,
                            pl_module.global_step, pl_module.current_epoch, batch_idx)
-            self.log_local(pl_module.logger.save_dir, "prior", images_prior,
-                           pl_module.global_step, pl_module.current_epoch, batch_idx)
-
             if is_train:
                 pl_module.train()
 
@@ -105,6 +92,9 @@ class ImageLogger(Callback):
         if not self.disabled and (pl_module.global_step > 0 or self.log_first_step):
             self.log_img(pl_module, batch, batch_idx)
 
+    def on_validation_batch_end(self, trainer, pl_module, outputs, batch, batch_idx, dataloader_idx):
+        if not self.disabled and pl_module.global_step > 0:
+            self.log_img(pl_module, batch, batch_idx, split="val")
 
 def main(hparams, ddconfig):
     model = AutoencoderKL(ddconfig=ddconfig, embed_dim=hparams.embed_dim)
